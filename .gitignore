@@ -1,0 +1,6 @@
+# Signing keys stay private
+*.jks
+*.keystore
+# Build outputs
+*.apk
+*.idsig

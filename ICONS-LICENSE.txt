@@ -1,0 +1,1 @@
+Control icons: Material Design Icons by Pictogrammers (https://pictogrammers.com), Apache License 2.0.
