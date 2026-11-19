@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds ShadeX.apk without Gradle: aapt2 -> javac -> d8 -> zipalign -> apksigner.
+# Builds ShadeX.apk (or ShadeX-root.apk with VARIANT=root) without Gradle: aapt2 -> javac -> d8 -> zipalign -> apksigner.
 # Uses the VODOS-build kit (%LOCALAPPDATA%\VODOS-build) through its 8.3 short path, because the
 # Windows user name is Hebrew and aapt2 / the JDK fail on non-ASCII paths.
 set -euo pipefail
@@ -16,10 +16,20 @@ rm -rf "$W" && mkdir -p "$W"/{gen,classes,dex}
 cp -r "$SRC/res" "$SRC/src" "$SRC/AndroidManifest.xml" "$JAR" "$W/"
 cd "$W"
 
+# The root build: same code, with Variant.ROOT on (blocks the system shade through su).
+VARIANT="${VARIANT:-}"
+OUT=ShadeX.apk
+VNAME=7.0
+if [ "$VARIANT" = root ]; then
+  sed -i "s/static final boolean ROOT = false;/static final boolean ROOT = true;/" src/com/shadex/app/Variant.java
+  OUT=ShadeX-root.apk
+  VNAME=7.0-root
+fi
+
 "$BT/aapt2.exe" compile --dir res -o res.zip
 "$BT/aapt2.exe" link -I android.jar --manifest AndroidManifest.xml -R res.zip -o base.apk \
   --java gen --min-sdk-version 29 --target-sdk-version 28 \
-  --version-code 21 --version-name 7.0 --auto-add-overlay
+  --version-code 21 --version-name "$VNAME" --auto-add-overlay
 
 find src gen -name '*.java' > sources.txt
 javac -encoding UTF-8 -source 8 -target 8 -bootclasspath "$JAR" -classpath "$BT/core-lambda-stubs.jar" -Xlint:-options \
@@ -38,6 +48,6 @@ if [ ! -f "$KS" ]; then
     -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=ShadeX"
 fi
 "$BT/apksigner.bat" sign --ks "$KS" --ks-pass pass:shadex --ks-key-alias shadex \
-  --out "$SRC/ShadeX.apk" aligned.apk
-"$BT/apksigner.bat" verify --print-certs "$SRC/ShadeX.apk" | head -3
-ls -la "$SRC/ShadeX.apk"
+  --out "$SRC/$OUT" aligned.apk
+"$BT/apksigner.bat" verify --print-certs "$SRC/$OUT" | head -3
+ls -la "$SRC/$OUT"

@@ -169,6 +169,8 @@ public class MainActivity extends Activity {
         stl.setMarginStart(dp(14));
         status.addView(st, stl);
 
+        if (Variant.ROOT) rootCard(col);
+
         label(col, "בדיקה מהירה");
         LinearLayout tests = new LinearLayout(this);
         TextView t1 = button("פתח מרכז בקרה", true, () -> test(Panel.CC));
@@ -222,6 +224,40 @@ public class MainActivity extends Activity {
                         + "החלקה שמתחילה קצת מתחת לשורת המצב, או מסך הבית של האפליקציה, עוקפות את זה לגמרי.",
                 null, null);
         return wrap(col);
+    }
+
+    /** Root build only: the system shade block, its state and a way to apply it now. */
+    private void rootCard(LinearLayout col) {
+        label(col, "חסימת החלונית של המערכת (רוט)");
+        LinearLayout g = group(col);
+        LinearLayout r = row(g, "", "", null, null);
+        LinearLayout texts = (LinearLayout) r.getChildAt(0);
+        TextView title = (TextView) texts.getChildAt(0);
+        TextView desc = (TextView) texts.getChildAt(1);
+        switchRow(g, "לחסום את החלונית של המערכת", "רק ShadeX נפתח מראש המסך", Prefs.ROOT_BLOCK, true);
+        row(g, "החל עכשיו", "מבקש הרשאת רוט אם עוד לא אושרה", chevron(), () -> {
+            ShadeService s = ShadeService.instance;
+            if (s == null) {
+                Toast.makeText(this, "קודם צריך להפעיל את שירות הנגישות", Toast.LENGTH_LONG).show();
+                return;
+            }
+            s.applyRootBlock();
+            title.postDelayed(() -> { for (Runnable u : updaters) u.run(); }, 2000);
+        });
+        updaters.add(() -> {
+            ShadeService s = ShadeService.instance;
+            boolean on = Prefs.rootBlock(this);
+            if (s == null) {
+                title.setText("השירות כבוי");
+                desc.setText("החסימה פועלת כששירות הנגישות של ShadeX פעיל");
+            } else if (s.rootBlocked) {
+                title.setText("✓ החלונית של המערכת חסומה");
+                desc.setText("עד שהשירות נעצר. אחרי הפעלה מחדש של הטלפון היא נחסמת שוב לבד");
+            } else {
+                title.setText(on ? "לא חסומה עדיין" : "החסימה כבויה");
+                desc.setText(on ? "לחץ 'החל עכשיו' ואשר את ShadeX באפליקציית הרוט" : "");
+            }
+        });
     }
 
     private View stylePage() {

@@ -76,6 +76,7 @@ public class ShadeService extends AccessibilityService
         registerReceiver(screenOff, new IntentFilter(Intent.ACTION_SCREEN_OFF));
         log("service connected");
         recreatePanel();
+        applyRootBlock();
     }
 
     @Override
@@ -105,6 +106,10 @@ public class ShadeService extends AccessibilityService
         }
         if (panel != null) panel.detach();
         panel = null;
+        if (Variant.ROOT && rootBlocked) {
+            rootBlocked = false;
+            new Thread(() -> Root.blockShade(false)).start();
+        }
     }
 
     @Override
@@ -115,6 +120,10 @@ public class ShadeService extends AccessibilityService
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sp, String key) {
+        if (Prefs.ROOT_BLOCK.equals(key)) {
+            applyRootBlock();
+            return;
+        }
         // Home screen settings don't concern the panel.
         if (key != null && (key.startsWith("home_") || key.equals(Prefs.DOCK))) return;
         h.removeCallbacks(recreate);
@@ -276,8 +285,46 @@ public class ShadeService extends AccessibilityService
 
     /** Opens the real system shade on purpose (the "original panel" button). */
     void openSystemShade(int globalAction) {
+        if (Variant.ROOT && rootBlocked) {
+            rootExec.execute(() -> {
+                if (Root.blockShade(false)) rootBlocked = false;
+                h.post(() -> {
+                    allowSystemUntil = SystemClock.uptimeMillis() + 3000;
+                    performGlobalAction(globalAction);
+                    h.postDelayed(reblock, 1500);
+                });
+            });
+            return;
+        }
         allowSystemUntil = SystemClock.uptimeMillis() + 3000;
         performGlobalAction(globalAction);
+    }
+
+    // ================================================================ root build
+
+    private final Executor rootExec = Executors.newSingleThreadExecutor();
+    /** True while the system shade is disabled through root. */
+    volatile boolean rootBlocked;
+
+    /** Once the system shade opened on purpose is closed again, block it again. */
+    private final Runnable reblock = new Runnable() {
+        @Override
+        public void run() {
+            if (systemShadeVisible()) h.postDelayed(this, 1000);
+            else applyRootBlock();
+        }
+    };
+
+    /** Root build: blocks or allows the system shade as the setting says (off the main thread). */
+    void applyRootBlock() {
+        if (!Variant.ROOT) return;
+        boolean want = Prefs.rootBlock(this);
+        rootExec.execute(() -> {
+            if (!want && !rootBlocked) return;
+            boolean ok = Root.blockShade(want);
+            if (ok) rootBlocked = want;
+            else if (want) h.post(() -> toast("לא התקבלה הרשאת רוט. אשר את ShadeX באפליקציית הרוט"));
+        });
     }
 
     @Override

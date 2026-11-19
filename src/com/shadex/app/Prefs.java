@@ -22,6 +22,7 @@ final class Prefs {
     static final String HOME_HIDDEN = "home_hidden";      // package names, comma separated
     static final String HOME_MIDDLE = "home_middle";      // what a swipe down mid-screen does: panel | search
     static final String HOME_DOCK_BG = "home_dock_bg";
+    static final String ROOT_BLOCK = "root_block";    // root build: disable the system shade
     static final String STYLE = "style";          // ios | android | xiaomi
 
     static SharedPreferences get(Context c) {
@@ -47,5 +48,6 @@ final class Prefs {
         return v != null ? v : Look.IOS.equals(style(c)) ? "search" : "panel";
     }
     static boolean homeDockBg(Context c) { return get(c).getBoolean(HOME_DOCK_BG, true); }
+    static boolean rootBlock(Context c) { return get(c).getBoolean(ROOT_BLOCK, true); }
     static String style(Context c) { return get(c).getString(STYLE, "ios"); }
 }
